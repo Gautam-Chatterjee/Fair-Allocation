@@ -383,11 +383,30 @@ def rankmap_to_order(rm):
 		order[rm[i]-1] = i
 	return order
 
+def compute_envy(num_agents, A, V):
+     envy = torch.zeros(1)
+     for i in range(num_agents):
+          for j in range(num_agents):
+               # compute i's value for i's allocation
+               i_alloc = A[i, :]
+               i_expected_value = torch.sum(i_alloc * V[i, :])
+
+               # compute i's value for j's allocation
+               j_alloc = A[j, :]
+               i_expected_value_for_j = torch.sum(j_alloc * V[i, :])
+
+               # subtract and (maybe) add to envy
+               ij_envy = i_expected_value_for_j - i_expected_value
+               if ij_envy > 0:
+                    envy += ij_envy
+     return envy
+
+
 phi = [0.95]
 #candidates
-l = 5
+l = 50
 # goods
-w =10
+w =100
 
 #ref = [2,10,9]
 cmap = gen_cand_map(l)
@@ -406,7 +425,7 @@ for i in range(0,len(b)):
 		ans.append(temp)
     
 
-print(ans)
+
 
 #
 #
@@ -431,11 +450,13 @@ valuations = valuations + np.random.rand(valuations.shape[0],valuations.shape[1]
 B = torch.randn(valuations.shape, requires_grad=True)
 
 V = torch.from_numpy(valuations).float()
+num_agents = V.shape[0]
+num_goods = V.shape[1]
 #V += np.random.rand(V.shape)*.001
 
-print(V)
 
-learning_rate = 1e-1
+
+learning_rate = 1e-3
 optimizer = torch.optim.Adam([B], lr=learning_rate)
 
 for iter in range(10000):
@@ -459,10 +480,12 @@ for iter in range(10000):
     # 3 4
     D = torch.diag(W)
     # [1 4]
+    envy = compute_envy(num_agents, A, V)
+    print(envy)
+    loss = -1*torch.sum(D) + envy
+    #loss = envy
 
-    loss = -1*torch.sum(D)
-
-    #print(loss)
+    
     
 
     # Compute gradient of loss with respect to B
@@ -477,12 +500,13 @@ for iter in range(10000):
 # Then A = [[ ~1  ~0]
 #           [ ~0  ~1]]
 print(A)
+print('LOSS: ', loss)
 
-U = torch.from_numpy(np.ones((w))).float()
+U = torch.from_numpy(np.ones((l))).float()
 print(U)
-N = torch.max(A, axis=0)
-print(N)
-print(torch.allclose(N,U, rtol=1e-01, atol=1e-04))
+N = torch.tensor(torch.max(A, axis=0).values)
+
+print(torch.allclose(N,U, rtol=1e-02, atol=1e-03))
 
 
 
